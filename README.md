@@ -123,7 +123,7 @@ Manual Cols      → Editable by assigned users
 
 ### First Time Setup
 
-**Step 1 — Admin account (admin.loan11@gmail.com):**
+**Step 1 — Admin account (your-admin@gmail.com):**
 ```
 Google Sheet → Extensions → Apps Script
 → Add files: TCO_Operations.gs, TCO_UserControl.gs,
@@ -190,7 +190,7 @@ DEALER_MASTER → Add dealer records
 var TCO = {
   SHEET_ID    : 'YOUR_SHEET_ID_HERE',
   DATA_ROW    : 4,           // Data starts row 4
-  ADMIN_EMAIL : 'admin.loan11@gmail.com'
+  ADMIN_EMAIL : 'your-admin@gmail.com'
 }
 ```
 
@@ -202,8 +202,7 @@ var TCO = {
 - **Row 2** = Column headings
 - **Row 3** = Type indicators (AUTO GEN / AUTO PULL / MANUAL)
 - **Row 4+** = Data entry rows
-- **Sheet Password:** `TCO@2026`
-- **Google Sheet ID:** `1yGs3OfRX9UdRUEMYzKHr1yt0rUaDQ5rBjoxg6aeNBgM`
+
 
 ---
 
@@ -213,7 +212,7 @@ var TCO = {
 ---
 
 ## 📞 Contact
-**Admin:** admin.loan11@gmail.com
+**Admin:** your-admin@gmail.com
 **System:** Loan 11 Possible Pvt. Ltd. — The Car Owner (TCO)
 **FY:** 2026-27
 
