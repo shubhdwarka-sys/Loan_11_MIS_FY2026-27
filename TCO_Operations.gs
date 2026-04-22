@@ -158,7 +158,6 @@ var CURRENCY_COLS = {
 // ── MAIN TRIGGER ─────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────
 function onEdit(e) {
-  if (!e || !e.range) return;  // ← YEH ADD KARO
   try {
     var range = e.range;
     var sheet = range.getSheet();
@@ -1122,7 +1121,7 @@ function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('⚙️ TCO Admin')
     .addItem('📦 Manual Backup',        'manualBackup')
-    .addItem('🔒 Apply Protections', 'TCO_applyAllProtections')
+    .addItem('🔒 Apply Protections',    'TCO_protectSheets')
     .addItem('🗂️ Borders & Formatting', 'applyBordersAll')
     .addItem('📋 Update Master Data',   'updateMasterDataManual')
     .addItem('🔁 Restore from Backup',  'restoreFromBackup')
