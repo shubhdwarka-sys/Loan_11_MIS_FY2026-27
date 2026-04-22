@@ -1,745 +1,624 @@
-// ============================================================
-// TCO_SheetSetup.gs — v3.0 | FY 2026-27
-// All 11 Sheets | Row colors | Validations | Number formats
-// Run: setupTCOSystem()
-// ============================================================
+/**
+ * ============================================================
+ *  Loan_11_MIS_FY2026-27 — SHEET SETUP SCRIPT
+ *  Version   : 3.0
+ *  Mapping   : Mapping_v3.pdf + Final_Book.xlsx
+ *  Author    : TCO Operations
+ *  Date      : Auto-stamped on run
+ * ============================================================
+ *  SHEETS FROM PDF  : DM (55) | ACCOUNT (43) | RTO (30) | MASTER (97)
+ *  SHEETS FROM EXCEL: DEALER_MASTER (10) | TCO_EMPLOYEE_MASTER (27)
+ * ============================================================
+ *  COLOR LEGEND:
+ *   ⬜ MANUAL   = WHITE   → User Entry (Editable)
+ *   🟩 DROPDOWN = GREEN   → Select from List (Editable)
+ *   🟦 AUTO     = BLUE    → Formula Auto-Pull (LOCKED)
+ *   🟨 GEN      = YELLOW  → Script Generated (LOCKED)
+ * ============================================================
+ */
 
-var SETUP = {
-  SHEETS : {
-    VISIBLE : ['DM_DISBURSEMENT MEMO','ACCOUNT_PAYMENT_TRACKER','RTO_TRACKER'],
-    HIDDEN  : ['MASTER_DATA','DEALER_MASTER','TCO_EMPLOYEE_MASTER',
-               'AUTH_AUDIT_LOG','_BACKUP_DM','_BACKUP_ACCOUNT','_BACKUP_RTO']
-  },
-  // Row 2: Light bg, dark font (same all sheets)
-  ROW2 : { BG: '#EFF6FF', FONT: '#1e293b' },
-
-  // Row 1 section colors — DM Sheet
-  DM_COLORS : {
-    KEY      : '#374151',  // Charcoal
-    CUSTOMER : '#065f46',  // Dark Green
-    BANK1    : '#1e3a5f',  // Navy
-    BANK2    : '#1e40af',  // Royal Blue
-    CHARGES  : '#92400e',  // Dark Amber
-    EXEC     : '#4c1d95',  // Purple
-    DEALER   : '#064e3b',  // Forest Green
-    PAYOUT   : '#78350f',  // Brown
-    REMARKS  : '#6b7280'   // Gray
-  },
-  // Row 1 section colors — ACC Sheet
-  ACC_COLORS : {
-    FROM_DM  : '#1e3a5f',  // Navy
-    PAYMENT  : '#065f46',  // Green
-    PAYER1   : '#6d28d9',  // Violet
-    PAYER2   : '#5b21b6',  // Deep Violet
-    PAYER3   : '#4c1d95',  // Purple
-    DEALER   : '#92400e',  // Amber
-    HOLD     : '#991b1b',  // Dark Red
-    RTO      : '#0369a1',  // Steel Blue
-    REMARKS  : '#374151'   // Charcoal
-  },
-  // Row 1 section colors — RTO Sheet
-  RTO_COLORS : {
-    KEY      : '#374151',  // Charcoal
-    STATUS   : '#991b1b',  // Dark Red
-    FROM_DM  : '#1e3a5f',  // Navy
-    PROCESS  : '#065f46',  // Green
-    VEHICLE  : '#92400e',  // Amber
-    OWNER    : '#4c1d95',  // Purple
-    FILING   : '#0369a1',  // Steel Blue
-    PENDING  : '#7c2d12',  // Dark Orange
-    RC       : '#374151'   // Charcoal
-  },
-  // Cell type colors
-  TYPE : {
-    AUTO_GEN  : '#166534',  // Dark Green
-    AUTO_PULL : '#1A4D8F',  // Deep Blue
-    MANUAL    : '#000000',  // Black
-    REG_NO    : '#c2410c',  // Dark Orange
-    DM_NO     : '#5D4037',  // Dark Brown
-  },
-  BORDER : '#CBD5E1'
-};
-
-
-// ── MAIN ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  MAIN ENTRY POINT
+// ─────────────────────────────────────────────
 function setupTCOSystem() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var ui = SpreadsheetApp.getUi();
-  ui.alert('🚀 TCO Setup Starting...\nPlease wait 60-90 seconds.');
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var now = Utilities.formatDate(new Date(), "Asia/Kolkata", "dd-MMM-yyyy  HH:mm");
 
-  createAllSheets_(ss);
-  setDmHeaders_(ss);
-  setAccHeaders_(ss);
-  setRtoHeaders_(ss);
-  setDealerMasterHeaders_(ss);
-  setEmpMasterHeaders_(ss);
-  setUserMasterHeaders_(ss);
-  setMasterDataHeaders_(ss);
-  setAuditLogHeaders_(ss);
-  setBackupSheetLabels_(ss);
-  applyAllFormatting_(ss);
-  setValidations_(ss);
-  manageSheetVisibility_(ss);
-  setColumnWidths_(ss);
+  // ── Sheet Names ──
+  var SN = {
+    DM     : "DM_DISBURSEMENT MEMO",
+    ACC    : "ACCOUNT_PAYMENT_TRACKER",
+    RTO    : "RTO_TRACKER",
+    MASTER : "MASTER_DATA",
+    DEALER : "DEALER_MASTER",
+    EMP    : "TCO_EMPLOYEE_MASTER"
+  };
 
-  ui.alert(
-    '✅ Setup Complete! All 11 Sheets Ready.\n\n' +
-    'Next: ⚙️ TCO Admin → Apply Sheet Protections'
+  // ── Color Palette ──
+  var COLOR = {
+    MANUAL   : { col:"#FFFFFF", label:"#333333", data:"#FFFFFF"  },
+    AUTO     : { col:"#C9DAF8", label:"#1A4CC8", data:"#EBF2FF"  },
+    GEN      : { col:"#FFF2CC", label:"#B45309", data:"#FFFDE7"  },
+    DROPDOWN : { col:"#D9EAD3", label:"#276221", data:"#F0FAF0"  },
+    HDR_BG   : "#0D1B2A",   // Dark Navy  — Header Row BG
+    HDR_FG   : "#FFFFFF",   // White      — Header Row Text
+    VER_BG   : "#1F3864",   // Deep Blue  — Version Row BG
+    VER_FG   : "#E8F0FE",   // Light Blue — Version Row Text
+    ALT1     : "#FFFFFF",   // Row banding color 1
+    ALT2     : "#F8FAFE"    // Row banding color 2
+  };
+
+  // ── Tab Colors ──
+  var TAB = {
+    DM     : "#4472C4",   // Blue
+    ACC    : "#107C41",   // Green
+    RTO    : "#ED7D31",   // Orange
+    MASTER : "#7030A0",   // Purple
+    DEALER : "#767676",   // Grey
+    EMP    : "#767676"    // Grey
+  };
+
+  // ══════════════════════════════════════════
+  //  SHEET DEFINITIONS (PDF Mapping v3)
+  // ══════════════════════════════════════════
+
+  // ── DM_DISBURSEMENT MEMO — 55 Columns ──
+  var DM_COLS = [
+    ["DM NO",                        "MANUAL"  ],
+    ["DM DATE",                      "MANUAL"  ],
+    ["MONTH",                        "GEN"     ],
+    ["DISB AMT RECEIVING DATE",      "AUTO"    ],
+    ["BUYER NAME",                   "MANUAL"  ],
+    ["PHONE 1",                      "MANUAL"  ],
+    ["PHONE 2",                      "MANUAL"  ],
+    ["EMAIL",                        "MANUAL"  ],
+    ["REG NO",                       "MANUAL"  ],
+    ["MODEL",                        "MANUAL"  ],
+    ["MFG YEAR",                     "MANUAL"  ],
+    ["BANK",                         "DROPDOWN"],
+    ["PRODUCT",                      "DROPDOWN"],
+    ["LOAN APPLIED",                 "MANUAL"  ],
+    ["LOAN APP 1",                   "MANUAL"  ],
+    ["INS 1",                        "MANUAL"  ],
+    ["SURAKSHA 1",                   "MANUAL"  ],
+    ["SURAKSHA TENURE 1",            "MANUAL"  ],
+    ["TOTAL LOAN 1",                 "MANUAL"  ],
+    ["FILE CHG",                     "MANUAL"  ],
+    ["ROI 1",                        "MANUAL"  ],
+    ["EMI 1",                        "MANUAL"  ],
+    ["LOAN TENURE 1",                "MANUAL"  ],
+    ["DISB AMT 1",                   "MANUAL"  ],
+    ["LOAN APP 2",                   "MANUAL"  ],
+    ["INS 2",                        "MANUAL"  ],
+    ["SURAKSHA 2",                   "MANUAL"  ],
+    ["SURAKSHA TENURE 2",            "MANUAL"  ],
+    ["TOTAL LOAN 2",                 "MANUAL"  ],
+    ["FILE CHG 2",                   "MANUAL"  ],
+    ["ROI_2",                        "MANUAL"  ],
+    ["EMI 2",                        "MANUAL"  ],
+    ["LOAN TENURE 2",                "MANUAL"  ],
+    ["DISB AMT 2",                   "MANUAL"  ],
+    ["RTO CHARGES",                  "MANUAL"  ],
+    ["Payment to DLR (as per DM)",   "MANUAL"  ],
+    ["e-Challan AMT (If Any)",       "MANUAL"  ],
+    ["DEALERSHIP PAYMENT STATUS",    "AUTO"    ],
+    ["EMP ID",                       "MANUAL"  ],
+    ["EXECUTIVE NAME",               "AUTO"    ],
+    ["BRANCH",                       "AUTO"    ],
+    ["TEAM LEADER",                  "AUTO"    ],
+    ["DEALERSHIP NAME",              "AUTO"    ],
+    ["AUTH PERSON (DLR)",            "AUTO"    ],
+    ["CONTACT NO (DLR)",             "MANUAL"  ],
+    ["LOCATION",                     "AUTO"    ],
+    ["VEHICLE OWNER NAME",           "MANUAL"  ],
+    ["PAYOUT TCO",                   "MANUAL"  ],
+    ["PAYOUT CD",                    "MANUAL"  ],
+    ["PAYOUT SCORE",                 "MANUAL"  ],
+    ["LOAN SCORE",                   "MANUAL"  ],
+    ["RTO SCORE",                    "MANUAL"  ],
+    ["EXE INCENTIVE",                "MANUAL"  ],
+    ["NET SCORE",                    "MANUAL"  ],
+    ["REMARKS",                      "MANUAL"  ]
+  ];
+
+  // ── ACCOUNT_PAYMENT_TRACKER — 43 Columns ──
+  var ACC_COLS = [
+    ["DM NO",                        "AUTO"    ],
+    ["BUYER NAME",                   "AUTO"    ],
+    ["PHONE 1",                      "AUTO"    ],
+    ["PHONE 2",                      "AUTO"    ],
+    ["REG NO",                       "AUTO"    ],
+    ["MODEL",                        "AUTO"    ],
+    ["MFG YEAR",                     "AUTO"    ],
+    ["BANK",                         "AUTO"    ],
+    ["PRODUCT",                      "AUTO"    ],
+    ["DEALERSHIP NAME",              "AUTO"    ],
+    ["EXECUTIVE NAME",               "AUTO"    ],
+    ["DISB AMT RECEIVING DATE",      "MANUAL"  ],
+    ["UTR NO",                       "MANUAL"  ],
+    ["DISB AMT RECEIVED",            "MANUAL"  ],
+    ["DISB AMT 1",                   "AUTO"    ],
+    ["DISB AMT 2",                   "AUTO"    ],
+    ["PAYER 1 NAME",                 "MANUAL"  ],
+    ["PAYER 1 DATE",                 "MANUAL"  ],
+    ["PAYER 1 AMOUNT",               "MANUAL"  ],
+    ["PAYER 1 ACC DETAILS",          "MANUAL"  ],
+    ["PAYER 2 NAME",                 "MANUAL"  ],
+    ["PAYER 2 DATE",                 "MANUAL"  ],
+    ["PAYER 2 AMOUNT",               "MANUAL"  ],
+    ["PAYER 2 ACC DETAILS",          "MANUAL"  ],
+    ["PAYER 3 NAME",                 "MANUAL"  ],
+    ["PAYER 3 DATE",                 "MANUAL"  ],
+    ["PAYER 3 AMOUNT",               "MANUAL"  ],
+    ["PAYER 3 ACC DETAILS",          "MANUAL"  ],
+    ["DEALERSHIP PAYMENT STATUS",    "DROPDOWN"],
+    ["PAYOUT TO DEALER",             "MANUAL"  ],
+    ["HOLD AMT FROM BANK",           "MANUAL"  ],
+    ["HOLD AMT FROM TCO",            "MANUAL"  ],
+    ["EXECUTIVE INCENTIVE",          "MANUAL"  ],
+    ["LOAN SCORE",                   "MANUAL"  ],
+    ["PAYOUT FROM BANK",             "MANUAL"  ],
+    ["NET SCORE",                    "MANUAL"  ],
+    ["RTO CHARGES",                  "AUTO"    ],
+    ["RTO VENDOR NAME",              "AUTO"    ],
+    ["RTO PAID AMOUNT",              "MANUAL"  ],
+    ["RTO PAYMENT DATE",             "MANUAL"  ],
+    ["RC TRANSFER STATUS",           "AUTO"    ],
+    ["RTO PROFIT",                   "GEN"     ],
+    ["REMARKS (IF ANY)",             "MANUAL"  ]
+  ];
+
+  // ── RTO_TRACKER — 30 Columns ──
+  var RTO_COLS = [
+    ["DM DATE",                          "AUTO"    ],
+    ["DM NO",                            "AUTO"    ],
+    ["DEALERSHIP PAYMENT STATUS",        "AUTO"    ],
+    ["PRODUCT",                          "AUTO"    ],
+    ["BRANCH",                           "AUTO"    ],
+    ["EXECUTIVE NAME",                   "AUTO"    ],
+    ["DEALERSHIP NAME",                  "AUTO"    ],
+    ["REG NO",                           "AUTO"    ],
+    ["CASE REC DATE",                    "MANUAL"  ],
+    ["RTO CODE",                         "GEN"     ],
+    ["MODEL",                            "AUTO"    ],
+    ["MFG YEAR",                         "AUTO"    ],
+    ["CHASSIS NO",                       "MANUAL"  ],
+    ["ENGINE NO",                        "MANUAL"  ],
+    ["OWNER NAME (SELLER)",              "AUTO"    ],
+    ["SELLER PHONE",                     "MANUAL"  ],
+    ["BUYER NAME",                       "AUTO"    ],
+    ["BUYER PHONE",                      "AUTO"    ],
+    ["BANK",                             "AUTO"    ],
+    ["CASE TYPE",                        "MANUAL"  ],
+    ["RTO SCAN FILE (LINK)",             "MANUAL"  ],
+    ["RTO VENDOR",                       "DROPDOWN"],
+    ["RTO RECEIPT NO",                   "MANUAL"  ],
+    ["RC TRANSFER STATUS",               "DROPDOWN"],
+    ["RC TRANSFER DATE",                 "MANUAL"  ],
+    ["PENDING DAYS",                     "GEN"     ],
+    ["ORIGINAL RC REC STATUS",           "DROPDOWN"],
+    ["TRANSFERRED RC COPY_PROOF (LINK)", "MANUAL"  ],
+    ["SYSTEM REMARKS",                   "MANUAL"  ],
+    ["REMARKS / ISSUE",                  "MANUAL"  ]
+  ];
+
+  // ── MASTER_DATA — 97 Columns (PDF v3) — all GEN ──
+  var MASTER_HEADERS = [
+    "DM NO","DM DATE","AUTH PERSON (DLR)","BANK","BRANCH","BUYER NAME","BUYER PHONE",
+    "CASE REC DATE","CASE TYPE","CHASSIS NO","CONTACT NO (DLR)","DEALERSHIP NAME",
+    "DEALERSHIP PAYMENT STATUS","DISB AMT 1","DISB AMT 2","DISB AMT RECEIVED",
+    "DISB AMT RECEIVING DATE","e-Challan AMT (If Any)","EMAIL","EMI 1","EMI 2","EMP ID",
+    "ENGINE NO","EXE INCENTIVE","EXECUTIVE INCENTIVE","EXECUTIVE NAME","FILE CHG","FILE CHG 2",
+    "HOLD AMT FROM BANK","HOLD AMT FROM TCO","INS 1","INS 2","LOAN APP 1","LOAN APP 2",
+    "LOAN APPLIED","LOAN SCORE","LOAN TENURE 1","LOAN TENURE 2","LOCATION","MFG YEAR",
+    "MODEL","MONTH","NET SCORE","ORIGINAL RC REC STATUS","OWNER NAME (SELLER)",
+    "PAYER 1 ACC DETAILS","PAYER 1 AMOUNT","PAYER 1 DATE","PAYER 1 NAME",
+    "PAYER 2 ACC DETAILS","PAYER 2 AMOUNT","PAYER 2 DATE","PAYER 2 NAME",
+    "PAYER 3 ACC DETAILS","PAYER 3 AMOUNT","PAYER 3 DATE","PAYER 3 NAME",
+    "Payment to DLR (as per DM)","PAYOUT CD","PAYOUT FROM BANK","PAYOUT SCORE",
+    "PAYOUT TCO","PAYOUT TO DEALER","PENDING DAYS","PHONE 1","PHONE 2","PRODUCT",
+    "RC TRANSFER DATE","RC TRANSFER STATUS","REG NO","REMARKS","REMARKS (IF ANY)",
+    "REMARKS / ISSUE","ROI 1","ROI_2","RTO CHARGES","RTO CODE","RTO PAID AMOUNT",
+    "RTO PAYMENT DATE","RTO PROFIT","RTO RECEIPT NO","RTO SCAN FILE (LINK)","RTO SCORE",
+    "RTO VENDOR","RTO VENDOR NAME","SELLER PHONE","SURAKSHA 1","SURAKSHA 2",
+    "SURAKSHA TENURE 1","SURAKSHA TENURE 2","SYSTEM REMARKS","TEAM LEADER",
+    "TOTAL LOAN 1","TOTAL LOAN 2","TRANSFERRED RC COPY_PROOF (LINK)","UTR NO",
+    "VEHICLE OWNER NAME"
+  ];
+
+  // ── DEALER_MASTER — 10 Columns (from Excel) ──
+  var DEALER_HEADERS = [
+    "DEALER CODE","DEALER NAME","LOCATION","CITY","CONTACT PERSON",
+    "CONTACT NO","DLR EMAIL","EMP ID","EXECUTIVE NAME","BRANCHES"
+  ];
+
+  // ── TCO_EMPLOYEE_MASTER — 27 Columns (from Excel) ──
+  var EMP_HEADERS = [
+    "EMP_ID","EMP_NAME","FATHER_NAME","DOB","GENDER","DESIGNATION","DEPARTMENT",
+    "BRANCH_CODE","TEAM_LEADER","TRAINING_DATE","DOJ","PROBATION_END_DATE",
+    "ON_ROLL_STATUS","STATUS","MOBILE_PERSONAL","MOBILE_OFFICIAL","EMAIL_PERSONAL",
+    "EMAIL_OFFICIAL","EMERGENCY_CONTACT_RELATION","EMERGENCY_CONTACT_NAME",
+    "EMERGENCY_MOBILE","SALARY_BASIC","PAN_NO","AADHAR_NO","POLICE_CLEARANCE_CERT",
+    "RESUME_FILE_LINK","PASSPORT_PHOTO_LINK"
+  ];
+
+  // ══════════════════════════════════════════
+  //  STEP 1 — RESET ALL SHEETS
+  // ══════════════════════════════════════════
+  resetSheet_(ss, SN.DM);
+  resetSheet_(ss, SN.ACC);
+  resetSheet_(ss, SN.RTO);
+  resetSheet_(ss, SN.MASTER);
+  resetSheet_(ss, SN.DEALER);
+  resetSheet_(ss, SN.EMP);
+
+  // ══════════════════════════════════════════
+  //  STEP 2 — BUILD WORKING SHEETS (User Editable)
+  // ══════════════════════════════════════════
+  buildWorkSheet_(ss, SN.DM,  DM_COLS,  TAB.DM,  "DM",  COLOR, now);
+  buildWorkSheet_(ss, SN.ACC, ACC_COLS, TAB.ACC, "ACC", COLOR, now);
+  buildWorkSheet_(ss, SN.RTO, RTO_COLS, TAB.RTO, "RTO", COLOR, now);
+
+  // ══════════════════════════════════════════
+  //  STEP 3 — BUILD MASTER DATA (Auto Generated)
+  // ══════════════════════════════════════════
+  buildMasterSheet_(ss, SN.MASTER, MASTER_HEADERS, TAB.MASTER, COLOR, now);
+
+  // ══════════════════════════════════════════
+  //  STEP 4 — BUILD REFERENCE TABLES
+  // ══════════════════════════════════════════
+  buildRefSheet_(ss, SN.DEALER, DEALER_HEADERS, TAB.DEALER, COLOR, now);
+  buildRefSheet_(ss, SN.EMP,    EMP_HEADERS,    TAB.EMP,    COLOR, now);
+
+  // ══════════════════════════════════════════
+  //  STEP 5 — LOCK & HIDE MASTER/REF SHEETS
+  // ══════════════════════════════════════════
+  lockAndHideSheet_(ss, SN.MASTER);
+  lockAndHideSheet_(ss, SN.DEALER);
+  lockAndHideSheet_(ss, SN.EMP);
+
+  // ══════════════════════════════════════════
+  //  STEP 6 — SET SHEET ORDER
+  // ══════════════════════════════════════════
+  var order = [SN.DM, SN.ACC, SN.RTO, SN.MASTER, SN.DEALER, SN.EMP];
+  for (var i = 0; i < order.length; i++) {
+    var sh = ss.getSheetByName(order[i]);
+    if (sh) ss.setActiveSheet(sh), ss.moveActiveSheet(i + 1);
+  }
+  ss.setActiveSheet(ss.getSheetByName(SN.DM));
+
+  // ══════════════════════════════════════════
+  //  DONE — ALERT
+  // ══════════════════════════════════════════
+  SpreadsheetApp.getUi().alert(
+    "✅  Loan_11_MIS_FY2026-27 — v3.0\n" +
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+    "  DM Sheet          → 55 Columns  ✔\n" +
+    "  Account Sheet     → 43 Columns  ✔\n" +
+    "  RTO Sheet         → 30 Columns  ✔\n" +
+    "  Master Data       → 97 Columns  🔒\n" +
+    "  Dealer Master     → 10 Columns  🔒\n" +
+    "  Employee Master   → 27 Columns  🔒\n" +
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+    "  Setup: " + now + "\n" +
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+    "  System Ready!"
   );
 }
 
-function createAllSheets_(ss) {
-  var all = SETUP.SHEETS.VISIBLE.concat(SETUP.SHEETS.HIDDEN);
-  var ex  = ss.getSheets().map(function(s){ return s.getName(); });
-  all.forEach(function(n){ if (ex.indexOf(n)===-1) ss.insertSheet(n); });
+
+// ─────────────────────────────────────────────
+//  RESET SHEET — Clear + Remove Protections
+// ─────────────────────────────────────────────
+function resetSheet_(ss, name) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) { ss.insertSheet(name); sh = ss.getSheetByName(name); }
+
+  // Unhide if hidden (needed to edit)
+  try { sh.showSheet(); } catch(e) {}
+
+  // Remove all protections
+  var rp = sh.getProtections(SpreadsheetApp.ProtectionType.RANGE);
+  for (var i = 0; i < rp.length; i++) rp[i].remove();
+  var sp = sh.getProtections(SpreadsheetApp.ProtectionType.SHEET);
+  for (var j = 0; j < sp.length; j++) sp[j].remove();
+
+  // Remove bandings
+  var bd = sh.getBandings();
+  for (var k = 0; k < bd.length; k++) bd[k].remove();
+
+  sh.clear();
+  sh.clearConditionalFormatRules();
 }
 
 
-// ── DM SHEET ──────────────────────────────────────────────────
-function setDmHeaders_(ss) {
-  var s = ss.getSheetByName('DM_DISBURSEMENT MEMO');
-  if (!s) return;
-  s.getRange(1,1,3,57).clear();
+// ─────────────────────────────────────────────
+//  BUILD WORKING SHEET (DM / ACC / RTO)
+// ─────────────────────────────────────────────
+function buildWorkSheet_(ss, name, cols, tabColor, code, C, now) {
+  var sheet   = ss.getSheetByName(name);
+  var numCols = cols.length;
+  var DATA_ROWS = 1000;  // rows 4 → 1003
 
-  // Row 1 — each section unique color
-  var c = SETUP.DM_COLORS;
-  var dmSec = [
-    {st:1, en:2,  label:'🔑  KEY',                  color:c.KEY},
-    {st:3, en:10, label:'🪪  CUSTOMER DETAILS',      color:c.CUSTOMER},
-    {st:11,en:26, label:'🏦  BANK 1 — LOAN DETAILS', color:c.BANK1},
-    {st:27,en:37, label:'🏦  BANK 2 — LOAN DETAILS', color:c.BANK2},
-    {st:38,en:39, label:'💲  CHARGES & STATUS',       color:c.CHARGES},
-    {st:40,en:43, label:'👤  EXECUTIVE',              color:c.EXEC},
-    {st:44,en:47, label:'🏪  DEALERSHIP',             color:c.DEALER},
-    {st:48,en:56, label:'💰  PAYOUT & SCORE',         color:c.PAYOUT},
-    {st:57,en:57, label:'📝  REMARKS',                color:c.REMARKS}
-  ];
-  setSectionRow_(s, dmSec);
+  // ── Tab Color ──
+  sheet.setTabColor(tabColor);
 
-  // Row 2 — light bg, dark font
-  var h2 = [
-    'DM NO','DM DATE','MONTH','DM RECEIVED DATE\n(FROM ACCOUNTS)','NO. OF DAYS',
-    'CUSTOMER NAME\n(BUYER)','PHONE NO','2ND PHONE NO','EMAIL ID','REGISTRATION NO',
-    'VEHICLE OWNER\n(SELLER)','VEHICLE MODEL','MANUFACTURING\nYEAR','FINANCED BANK NAME','PRODUCT',
-    'LOAN AMOUNT\nAPPLIED','LOAN AMOUNT\nAPPROVED 1','LOAN TENURE 1','INSURANCE\nAMOUNT 1',
-    'LOAN SURAKHSA 1','TOTAL LOAN\nAMOUNT 1','SURAKHSA\nTENURE 1','FILE CHARGE 1',
-    'ROI (%) 1','EMI 1','DISBURSEMENT\nAMOUNT 1',
-    '2ND FINANCED\nBANK NAME','LOAN AMOUNT\nAPPROVED 2','LOAN TENURE 2','INSURANCE\nAMOUNT 2',
-    'LOAN SURAKHSA 2','TOTAL LOAN\nAMOUNT 2','SURAKHSA\nTENURE 2','FILE CHARGE 2',
-    'ROI (%) 2','EMI 2','DISBURSEMENT\nAMOUNT 2',
-    'e-Challan AMT\n(If Any)','DEALERSHIP\nPAYMENT STATUS','EMP ID',
-    'EXECUTIVE NAME','BRANCH','TEAM LEADER','DEALERSHIP NAME',
-    'AUTH PERSON (DLR)','CONTACT NO (DLR)','LOCATION','SELLER NAME (AUTO)',
-    'PAYOUT TCO','PAYOUT CD','PAYOUT SCORE','LOAN SCORE',
-    'RTO CHARGES','RTO SCORE','EXE INCENTIVE','NET SCORE','REMARKS'
-  ];
-  setHeaderRow2_(s, h2);
+  // ── ROW 1: VERSION BAR ──
+  sheet.getRange(1, 1, 1, numCols).merge();
+  sheet.getRange(1, 1)
+    .setValue("📋  Loan_11_MIS_FY2026-27   |   " + code + "   |   v3.0   |   Setup: " + now)
+    .setBackground(C.VER_BG)
+    .setFontColor(C.VER_FG)
+    .setFontSize(10)
+    .setFontFamily("Arial")
+    .setFontWeight("bold")
+    .setHorizontalAlignment("left")
+    .setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 28);
 
-  // Row 3 — type indicators with colors
-  var t3 = [
-    {v:'⚡ AUTO GEN',  c:SETUP.TYPE.AUTO_GEN},
-    {v:'✏ MANUAL',    c:SETUP.TYPE.MANUAL},
-    {v:'⚡ AUTO GEN',  c:SETUP.TYPE.AUTO_GEN},
-    {v:'↺ AUTO PULL', c:SETUP.TYPE.AUTO_PULL},
-    {v:'⚡ AUTO GEN',  c:SETUP.TYPE.AUTO_GEN},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.REG_NO},   // REG NO — orange hint
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'▾ DROPDOWN',c:SETUP.TYPE.MANUAL},
-    {v:'▾ DROPDOWN',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'% PERCENT',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'% PERCENT',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✎ FREE TEXT',c:SETUP.TYPE.MANUAL}
-  ];
-  setTypeRow3_(s, t3);
+  // ── ROW 2: COLUMN HEADERS ──
+  var headers = cols.map(function(c){ return c[0]; });
+  var hrng    = sheet.getRange(2, 1, 1, numCols);
+  hrng.setValues([headers])
+      .setBackground(C.HDR_BG)
+      .setFontColor(C.HDR_FG)
+      .setFontSize(9)
+      .setFontFamily("Arial")
+      .setFontWeight("bold")
+      .setHorizontalAlignment("center")
+      .setVerticalAlignment("middle")
+      .setWrap(false);
+  sheet.setRowHeight(2, 38);
 
-  finalizeRows_(s, true);
-}
-
-
-// ── ACC SHEET ─────────────────────────────────────────────────
-function setAccHeaders_(ss) {
-  var s = ss.getSheetByName('ACCOUNT_PAYMENT_TRACKER');
-  if (!s) return;
-  s.getRange(1,1,3,45).clear();
-
-  var c = SETUP.ACC_COLORS;
-  var accSec = [
-    {st:1, en:14, label:'🔑  AUTO FROM DM ▶',     color:c.FROM_DM},
-    {st:15,en:17, label:'💳  PAYMENT RECEIVED',    color:c.PAYMENT},
-    {st:18,en:21, label:'💸  PAYER 1',             color:c.PAYER1},
-    {st:22,en:25, label:'💸  PAYER 2',             color:c.PAYER2},
-    {st:26,en:29, label:'💸  PAYER 3',             color:c.PAYER3},
-    {st:30,en:32, label:'🏪  DEALER PAYMENT',      color:c.DEALER},
-    {st:33,en:38, label:'💲  HOLD & INCENTIVE',    color:c.HOLD},
-    {st:39,en:44, label:'🔧  RTO SECTION',         color:c.RTO},
-    {st:45,en:45, label:'📝  REMARKS',             color:c.REMARKS}
-  ];
-  setSectionRow_(s, accSec);
-
-  var h2 = [
-    'DM DATE','DM NO','BUYER NAME','PHONE NO','2ND PHONE NO','REGISTRATION NO',
-    'VEHICLE MODEL','MANUFACTURING\nYEAR','FINANCED BANK NAME','PRODUCT',
-    'DEALERSHIP NAME','EXECUTIVE NAME','DISB AMOUNT 1\n(BANK)','DISB AMOUNT 2\n(CM)',
-    'DISB AMT RECEIVED','DISB AMT\nRECEIVING DATE','UTR NO',
-    'PAYER 1 NAME','PAYER 1 DATE','PAYER 1 AMOUNT','PAYER 1 ACC DETAILS',
-    'PAYER 2 NAME','PAYER 2 DATE','PAYER 2 AMOUNT','PAYER 2 ACC DETAILS',
-    'PAYER 3 NAME','PAYER 3 DATE','PAYER 3 AMOUNT','PAYER 3 ACC DETAILS',
-    'DEALERSHIP\nPAYMENT STATUS','DEALERSHIP\nPAYMENT DATE','PAYOUT TO DEALER',
-    'HOLD AMT FROM BANK','HOLD AMT FROM TCO','EXECUTIVE INCENTIVE',
-    'LOAN SCORE','PAYOUT FROM BANK','NET SCORE',
-    'RTO CHARGES','RTO VENDOR NAME','RTO PAID AMOUNT','RTO PAYMENT DATE',
-    'RC TRANSFER STATUS','RTO PROFIT\n(CHARGES-PAID)','REMARKS (IF ANY)'
-  ];
-  setHeaderRow2_(s, h2);
-
-  var t3 = [
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.REG_NO},  // REG NO orange hint
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'▾ DROPDOWN',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'⚡ AUTO GEN',c:SETUP.TYPE.AUTO_GEN},{v:'✎ FREE TEXT',c:SETUP.TYPE.MANUAL}
-  ];
-  setTypeRow3_(s, t3);
-  finalizeRows_(s, true);
-}
-
-
-// ── RTO SHEET ─────────────────────────────────────────────────
-function setRtoHeaders_(ss) {
-  var s = ss.getSheetByName('RTO_TRACKER');
-  if (!s) return;
-  s.getRange(1,1,3,30).clear();
-
-  var c = SETUP.RTO_COLORS;
-  var rtoSec = [
-    {st:1, en:2,  label:'🔑  LINK KEY',         color:c.KEY},
-    {st:3, en:3,  label:'📋  STATUS',            color:c.STATUS},
-    {st:4, en:8,  label:'👤  AUTO FROM DM ▶',   color:c.FROM_DM},
-    {st:9, en:10, label:'🏛  RTO PROCESS',       color:c.PROCESS},
-    {st:11,en:14, label:'🚗  VEHICLE',           color:c.VEHICLE},
-    {st:15,en:19, label:'📋  OWNER & BANK',      color:c.OWNER},
-    {st:20,en:25, label:'🏛  RTO FILING',        color:c.FILING},
-    {st:26,en:26, label:'⏱  PENDING DAYS',      color:c.PENDING},
-    {st:27,en:30, label:'📦  RC & REMARKS',      color:c.RC}
-  ];
-  setSectionRow_(s, rtoSec);
-
-  var h2 = [
-    'DM DATE','DM NO','DEALERSHIP PAYMENT\nSTATUS',
-    'PRODUCT','BRANCH','EXECUTIVE NAME','DEALERSHIP NAME','REGISTRATION NO',
-    'RTO CASE_FILE\nREC DATE','RTO CODE',
-    'VEHICLE MODEL','MANUFACTURING\nYEAR','CHASSIS NO','ENGINE NO',
-    'SELLER NAME','SELLER PHONE','BUYER NAME','BUYER PHONE',
-    'FINANCED BANK NAME','CASE TYPE',
-    'RTO SCAN FILE\n(LINK)','RTO VENDOR','RTO RECEIPT NO',
-    'RC TRANSFER\nSTATUS','RC TRANSFER DATE','PENDING DAYS',
-    'ORIGINAL RC\nREC STATUS','TRANSFERRED RC\nCOPY_PROOF (LINK)',
-    'SYSTEM REMARKS','REMARKS / ISSUE'
-  ];
-  setHeaderRow2_(s, h2);
-
-  var t3 = [
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.REG_NO},  // REG NO orange hint
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'⚡ AUTO GEN',c:SETUP.TYPE.AUTO_GEN},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},{v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'↺ AUTO PULL',c:SETUP.TYPE.AUTO_PULL},
-    {v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'▾ DROPDOWN',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'▾ DROPDOWN',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'⚡ AUTO GEN',c:SETUP.TYPE.AUTO_GEN},
-    {v:'▾ DROPDOWN',c:SETUP.TYPE.MANUAL},{v:'✏ MANUAL',c:SETUP.TYPE.MANUAL},
-    {v:'✎ FREE TEXT',c:SETUP.TYPE.MANUAL},{v:'✎ FREE TEXT',c:SETUP.TYPE.MANUAL}
-  ];
-  setTypeRow3_(s, t3);
-  finalizeRows_(s, true);
-}
-
-
-// ── SUPPORT SHEETS ────────────────────────────────────────────
-function setDealerMasterHeaders_(ss) {
-  var s = ss.getSheetByName('DEALER_MASTER'); if (!s) return;
-  s.getRange(1,1,3,10).clear();
-  s.getRange(1,1,1,10).merge().setValue('📊  DEALER_MASTER — TCO Authorized Dealers')
-   .setBackground('#065f46').setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(14)
-   .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  setHeaderRow2_(s,['DEALER CODE','DEALER NAME','LOCATION','CITY','CONTACT PERSON',
-    'CONTACT NO','DLR EMAIL','EMP ID','EXECUTIVE NAME','BRANCHES']);
-  s.getRange(3,1,1,10).setValues([['DLR001','Dealer Name','Area','City',
-    'Owner/Manager','10-digit','email@domain.com','TCO_ID','Exec Name','Branch']])
-   .setBackground('#D1FAE5').setFontColor('#065f46').setFontSize(9).setFontStyle('italic')
-   .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  s.setRowHeight(1,40);s.setRowHeight(2,40);s.setRowHeight(3,22);s.setFrozenRows(2);
-  s.getRange(4,1,200,10).setFontWeight('bold').setHorizontalAlignment('center')
-   .setVerticalAlignment('middle').setFontSize(10)
-   .setBorder(true,true,true,true,true,true,SETUP.BORDER,SpreadsheetApp.BorderStyle.SOLID);
-  [90,180,160,100,160,130,180,90,150,150].forEach(function(w,i){s.setColumnWidth(i+1,w);});
-}
-
-function setEmpMasterHeaders_(ss) {
-  var s = ss.getSheetByName('TCO_EMPLOYEE_MASTER'); if (!s) return;
-  s.getRange(1,1,3,27).clear();
-  var sec27 = [
-    {st:1,en:5,label:'🪪  IDENTITY',color:'#1e3a5f'},
-    {st:6,en:9,label:'💼  JOB DETAILS',color:'#065f46'},
-    {st:10,en:14,label:'📅  DATES & STATUS',color:'#92400e'},
-    {st:15,en:17,label:'📞  CONTACT',color:'#4c1d95'},
-    {st:18,en:21,label:'📧  EMAIL & EMERGENCY',color:'#0369a1'},
-    {st:22,en:24,label:'💰  FINANCE',color:'#78350f'},
-    {st:25,en:27,label:'📄  DOCUMENTS',color:'#374151'}
-  ];
-  setSectionRow_(s, sec27);
-  setHeaderRow2_(s,['EMP_ID','EMP_NAME','FATHER_NAME','DOB','GENDER',
-    'DESIGNATION','DEPARTMENT','BRANCH_CODE','TEAM_LEADER',
-    'TRAINING_DATE','DOJ','PROBATION_END_DATE','ON_ROLL_STATUS','STATUS',
-    'MOBILE_PERSONAL','MOBILE_OFFICIAL','EMAIL_PERSONAL','EMAIL_OFFICIAL',
-    'EMERGENCY_CONTACT_RELATION','EMERGENCY_CONTACT_NAME','EMERGENCY_MOBILE',
-    'SALARY_BASIC','PAN_NO','AADHAR_NO',
-    'POLICE_CLEARANCE_CERT','RESUME_FILE_LINK','PASSPORT_PHOTO_LINK']);
-  s.getRange(3,1,1,27).setValues([['TCO001','FULL NAME','FATHER','DD/MM/YYYY','M/F',
-    'Designation','Dept','Branch','TL','DD/MM/YYYY','DD/MM/YYYY','DD/MM/YYYY',
-    'On-roll','ACTIVE','10-digit','10-digit','personal@','official@',
-    'Father/Mother','Name','10-digit','₹Amount','PAN','Aadhar',
-    'YES/NO','Link','Link']])
-   .setBackground('#DBEAFE').setFontColor('#1e3a5f').setFontSize(9).setFontStyle('italic')
-   .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  s.setRowHeight(1,36);s.setRowHeight(2,45);s.setRowHeight(3,22);
-  s.setFrozenRows(2);
-  s.getRange(4,1,200,27).setFontWeight('bold').setHorizontalAlignment('center')
-   .setVerticalAlignment('middle').setFontSize(10)
-   .setBorder(true,true,true,true,true,true,SETUP.BORDER,SpreadsheetApp.BorderStyle.SOLID);
-  dropdownRule_(s,4,14,500,['ACTIVE','PROBATION','CONFIRMED','NOTICE PERIOD','RESIGNED','TERMINATED']);
-  dropdownRule_(s,4,5,500,['MALE','FEMALE','OTHER']);
-  var w={1:90,2:160,3:150,4:100,5:80,6:140,7:140,8:140,9:150,13:110,14:110,17:180,18:180,22:100,23:130,24:150,26:130,27:130};
-  Object.keys(w).forEach(function(c){s.setColumnWidth(Number(c),w[c]);});
-}
-
-function setUserMasterHeaders_(ss) {
-  var s = ss.getSheetByName('USER_MASTER'); if (!s) return;
-  s.getRange(1,1,3,21).clear();
-  var secU = [
-    {st:1,en:7,label:'👤  USER INFO',color:'#1e3a5f'},
-    {st:8,en:9,label:'📸  PROFILE PHOTO',color:'#374151'},
-    {st:10,en:13,label:'📋  DM PERMISSIONS',color:'#065f46'},
-    {st:14,en:17,label:'💰  ACCOUNT PERMISSIONS',color:'#92400e'},
-    {st:18,en:21,label:'🚗  RTO PERMISSIONS',color:'#0369a1'}
-  ];
-  setSectionRow_(s, secU);
-  setHeaderRow2_(s,['EMP ID','FULL NAME','PASSWORD','ROLE','BRANCH','EMAIL','IS ACTIVE',
-    'PROFILE PHOTO LINK','PHOTO THUMB LINK',
-    'DM — CAN VIEW','DM — EDIT COLS','DM — BRANCH FILTER','DM — OWN CASES ONLY',
-    'ACC — CAN VIEW','ACC — EDIT COLS','ACC — BRANCH FILTER','ACC — OWN CASES ONLY',
-    'RTO — CAN VIEW','RTO — EDIT COLS','RTO — BRANCH FILTER','RTO — OWN CASES ONLY']);
-  s.getRange(3,1,1,21).setValues([['MGT01','Full Name','password',
-    'MANAGEMENT/SALES/ACCOUNTS/RTO/ADMIN','Branch or ALL','email@gmail.com','YES/NO',
-    'Drive link','Thumb link','YES/NO','Col nos. or ALL','Branch or ALL','YES/NO',
-    'YES/NO','Col nos. or ALL','Branch or ALL','YES/NO',
-    'YES/NO','Col nos. or ALL','Branch or ALL','YES/NO']])
-   .setBackground('#FEF3C7').setFontColor('#92400e').setFontSize(9).setFontStyle('italic')
-   .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  s.setRowHeight(1,36);s.setRowHeight(2,45);s.setRowHeight(3,22);s.setFrozenRows(2);
-  s.getRange(4,1,1,21).setValues([['MGT01','ADMIN','admin@123','MANAGEMENT','ALL',
-    'admin.loan11@gmail.com','YES','','',
-    'YES','ALL','ALL','NO','YES','ALL','ALL','NO','YES','ALL','ALL','NO']])
-   .setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle')
-   .setFontSize(10).setBorder(true,true,true,true,true,true,SETUP.BORDER,SpreadsheetApp.BorderStyle.SOLID);
-  dropdownRule_(s,4,4,200,['SALES','ACCOUNTS','RTO','MANAGEMENT','ADMIN']);
-  dropdownRule_(s,4,7,200,['YES','NO']);
-  s.getRange(5,1,196,21).setFontWeight('bold').setHorizontalAlignment('center')
-   .setVerticalAlignment('middle').setFontSize(10)
-   .setBorder(true,true,true,true,true,true,SETUP.BORDER,SpreadsheetApp.BorderStyle.SOLID);
-  [90,150,110,130,110,180,80].forEach(function(w,i){s.setColumnWidth(i+1,w);});
-  s.setColumnWidths(8,2,130);s.setColumnWidths(10,12,100);
-}
-
-function setMasterDataHeaders_(ss) {
-  var s = ss.getSheetByName('MASTER_DATA'); if (!s) return;
-  s.getRange(1,1,2,99).clear();
-  s.getRange(1,1,1,57).merge().setValue('📋  DM DATA — 57 COLS')
-   .setBackground('#1F3864').setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(13)
-   .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  s.getRange(1,58,1,31).merge().setValue('💰  ACCOUNT DATA — 31 COLS')
-   .setBackground('#166534').setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(13)
-   .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  s.getRange(1,89,1,11).merge().setValue('🚗  RTO DATA — 11 COLS')
-   .setBackground('#7c2d12').setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(13)
-   .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  var allH=['DM NO','DM DATE','MONTH','DM RECEIVED DATE','NO. OF DAYS',
-    'CUSTOMER NAME (BUYER)','PHONE NO','2ND PHONE NO','EMAIL ID','REGISTRATION NO',
-    'VEHICLE OWNER (SELLER)','VEHICLE MODEL','MANUFACTURING YEAR','FINANCED BANK NAME','PRODUCT',
-    'LOAN AMOUNT APPLIED','LOAN AMOUNT APPROVED 1','LOAN TENURE 1','INSURANCE AMOUNT 1',
-    'LOAN SURAKHSA 1','TOTAL LOAN AMOUNT 1','SURAKHSA TENURE 1','FILE CHARGE 1',
-    'ROI (%) 1','EMI 1','DISBURSEMENT AMOUNT 1',
-    '2ND FINANCED BANK NAME','LOAN AMOUNT APPROVED 2','LOAN TENURE 2','INSURANCE AMOUNT 2',
-    'LOAN SURAKHSA 2','TOTAL LOAN AMOUNT 2','SURAKHSA TENURE 2','FILE CHARGE 2',
-    'ROI (%) 2','EMI 2','DISBURSEMENT AMOUNT 2',
-    'e-Challan AMT (If Any)','DEALER PAYMENT STATUS','EMP ID',
-    'EXECUTIVE NAME','BRANCH','TEAM LEADER','DEALERSHIP NAME',
-    'AUTH PERSON (DLR)','CONTACT NO (DLR)','LOCATION','SELLER NAME (AUTO)',
-    'PAYOUT TCO','PAYOUT CD','PAYOUT SCORE','LOAN SCORE',
-    'RTO CHARGES','RTO SCORE','EXE INCENTIVE','NET SCORE','DM REMARKS',
-    'DISB AMT RECEIVED','DISB AMT RECEIVING DATE','UTR NO',
-    'PAYER 1 NAME','PAYER 1 DATE','PAYER 1 AMOUNT','PAYER 1 ACC DETAILS',
-    'PAYER 2 NAME','PAYER 2 DATE','PAYER 2 AMOUNT','PAYER 2 ACC DETAILS',
-    'PAYER 3 NAME','PAYER 3 DATE','PAYER 3 AMOUNT','PAYER 3 ACC DETAILS',
-    'DEALERSHIP PAYMENT DATE','PAYOUT TO DEALER',
-    'HOLD AMT FROM BANK','HOLD AMT FROM TCO','EXECUTIVE INCENTIVE',
-    'LOAN SCORE (ACC)','PAYOUT FROM BANK','NET SCORE (ACC)',
-    'RTO VENDOR NAME','RTO PAID AMOUNT','RTO PAYMENT DATE',
-    'RC TRANSFER STATUS','RTO PROFIT','ACC REMARKS',
-    'DEALERSHIP PAYMENT STATUS (ACC)','DISB AMT 1 (BANK)',
-    'RTO CODE','RTO CASE_FILE REC DATE','CHASSIS NO','ENGINE NO',
-    'SELLER PHONE','CASE TYPE','RTO SCAN FILE (LINK)',
-    'RTO RECEIPT NO','RC TRANSFER DATE','ORIGINAL RC REC STATUS','RTO REMARKS / ISSUE'];
-  setHeaderRow2_(s, allH);
-  s.setRowHeight(1,36);s.setRowHeight(2,40);s.setFrozenRows(2);
-}
-
-function setAuditLogHeaders_(ss) {
-  var s = ss.getSheetByName('AUTH_AUDIT_LOG'); if (!s) return;
-  s.getRange(1,1,2,6).clear();
-  s.getRange(1,1,1,6).merge().setValue('📊  AUTH_AUDIT_LOG — Login History')
-   .setBackground('#374151').setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(13)
-   .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  setHeaderRow2_(s,['LOGIN TIMESTAMP','EMP ID','NAME','ROLE','BRANCH','SOURCE']);
-  s.setRowHeight(1,36);s.setRowHeight(2,36);s.setFrozenRows(2);
-  [160,90,150,110,120,120].forEach(function(w,i){s.setColumnWidth(i+1,w);});
-}
-
-function setBackupSheetLabels_(ss) {
-  ['_BACKUP_DM','_BACKUP_ACCOUNT','_BACKUP_RTO'].forEach(function(n) {
-    var sh=ss.getSheetByName(n); if (!sh) return;
-    sh.getRange(1,1).setValue('AUTO BACKUP — '+n)
-      .setFontWeight('bold').setFontSize(12)
-      .setBackground('#374151').setFontColor('#FFFFFF');
-    sh.setRowHeight(1,32);
+  // ── ROW 3: TYPE LABELS ──
+  var labels = cols.map(function(c){
+    var t = c[1];
+    if (t === "AUTO")     return "↺  AUTO PULL";
+    if (t === "GEN")      return "⚙  AUTO GEN";
+    if (t === "DROPDOWN") return "▾  DROPDOWN";
+    return "✏  MANUAL";
   });
-}
+  sheet.getRange(3, 1, 1, numCols).setValues([labels]);
+  sheet.setRowHeight(3, 22);
 
+  // ── PER-COLUMN STYLING ──
+  for (var i = 0; i < numCols; i++) {
+    var col  = i + 1;
+    var type = cols[i][1];
+    var name_ = cols[i][0];
+    var palette = C[type];
 
-// ── VALIDATIONS ───────────────────────────────────────────────
-function setValidations_(ss) {
-  var dm  = ss.getSheetByName('DM_DISBURSEMENT MEMO');
-  var acc = ss.getSheetByName('ACCOUNT_PAYMENT_TRACKER');
-  var rto = ss.getSheetByName('RTO_TRACKER');
+    // Type label row (row 3)
+    sheet.getRange(3, col)
+      .setBackground(palette.col)
+      .setFontColor(palette.label)
+      .setFontSize(8)
+      .setFontFamily("Arial")
+      .setFontWeight("bold")
+      .setHorizontalAlignment("center")
+      .setVerticalAlignment("middle");
 
-  // ── 0. CLEAR ALL EXISTING VALIDATIONS FIRST ───────────────
-  // Removes old/conflicting validations before applying new ones
-  [dm, acc, rto].forEach(function(sh) {
-    if (!sh) return;
-    var lastRow = Math.max(sh.getLastRow(), 4);
-    var lastCol = sh.getLastColumn() || 57;
-    sh.getRange(4, 1, lastRow, lastCol).clearDataValidations();
-  });
+    // Header bottom border (type-color indicator)
+    sheet.getRange(2, col).setBorder(
+      null, null, true, null, null, null,
+      type === "MANUAL" ? "#888888" : palette.col,
+      SpreadsheetApp.BorderStyle.SOLID_MEDIUM
+    );
 
-  // ── 1. DROPDOWNS — Strict block ───────────────────────────
-  if (dm) {
-    dropdownRule_(dm,4,14,500,['SBI','HDFC','KOTAK','ICICI','AXIS','PNB','BOB',
-      'UNION BANK','CANARA','FEDERAL','YES BANK','IDFC','OTHER']);
-    dropdownRule_(dm,4,15,500,['USED','NEW','TWO WHEELER']);
-  }
-  if (acc) dropdownRule_(acc,4,30,500,['PENDING','PAID','PARTIAL']);
-  if (rto) {
-    dropdownRule_(rto,4,22,500,['VENDOR 1','VENDOR 2','VENDOR 3','VENDOR 4','OTHER']);
-    dropdownRule_(rto,4,24,500,['PENDING','IN PROCESS','COMPLETED']);
-    dropdownRule_(rto,4,27,500,['RECEIVED','PENDING','NOT APPLICABLE']);
-  }
+    // Data area background (rows 4 onward)
+    if (type !== "MANUAL") {
+      sheet.getRange(4, col, DATA_ROWS, 1).setBackground(palette.data);
+    }
 
-  // ── 2. DATE — Strict block ─────────────────────────────────
-  if (dm)  dateRule_(dm,  4, 2,  500);
-  if (acc) {
-    dateRule_(acc,4,16,500); dateRule_(acc,4,19,500);
-    dateRule_(acc,4,23,500); dateRule_(acc,4,27,500);
-    dateRule_(acc,4,31,500); dateRule_(acc,4,42,500);
-  }
-  if (rto) { dateRule_(rto,4,9,500); dateRule_(rto,4,25,500); }
-  // RTO Seller Phone — 10 digit
-          
-  // ── 3. TENURE — Strict block (2 digit max) ────────────────
-  if (dm) {
-    numLenRule_(dm,4,18,500,2);  // R: LOAN TENURE 1
-    numLenRule_(dm,4,22,500,2);  // V: SURAKHSA TENURE 1
-    numLenRule_(dm,4,29,500,2);  // AC: LOAN TENURE 2
-    numLenRule_(dm,4,33,500,2);  // AG: SURAKHSA TENURE 2
+    // Column width
+    var w = 120;
+    if (name_.indexOf("REMARKS") > -1 || name_.indexOf("LINK") > -1) w = 210;
+    else if (name_.indexOf("NAME") > -1 || name_.indexOf("DETAILS") > -1) w = 145;
+    else if (name_.indexOf("AMT") > -1  || name_.indexOf("AMOUNT") > -1)  w = 130;
+    else if (name_.indexOf("DATE") > -1) w = 125;
+    sheet.setColumnWidth(col, w);
   }
 
-  // ── 4. MFG YEAR — Strict block (4 digit) ──────────────────
-  if (dm) numLenRule_(dm,4,13,500,4);
+  // ── ALTERNATING ROW COLORS (data area — MANUAL cols only) ──
+  var cfRules = [];
+  var evenRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied("=AND(MOD(ROW(),2)=0,TRUE)")
+    .setBackground(C.ALT2)
+    .setRanges([sheet.getRange(4, 1, DATA_ROWS, numCols)])
+    .build();
+  cfRules.push(evenRule);
+  sheet.setConditionalFormatRules(cfRules);
 
-  // ── 5. NUMBER FORMAT — Currency columns ───────────────────
-  // Format only — no validation popup (warning via onEdit script)
-  var dmCurr  = [16,17,19,20,21,23,25,26,28,30,31,32,34,36,37,38,49,50,53,55];  // Removed score cols: 51,52,54,56
-  var accCurr = [15,20,24,28,32,33,34,35,37,41];
-  if (dm)  applyFormat_(dm, 4, dmCurr,  500, '₹ ##,##,##0');
-  if (acc) applyFormat_(acc,4, accCurr, 500, '₹ ##,##,##0');
+  // ── FREEZE TOP 3 ROWS ──
+  sheet.setFrozenRows(3);
 
-  // ── 6. ROI % FORMAT ───────────────────────────────────────
-  if (dm) {
-    applyFormat_(dm,4,[24],500,'0.00" %"');
-    applyFormat_(dm,4,[35],500,'0.00" %"');
+  // ── PROTECT AUTO / GEN COLUMNS ──
+  for (var j = 0; j < numCols; j++) {
+    var t = cols[j][1];
+    if (t === "AUTO" || t === "GEN") {
+      var lock = sheet.getRange(4, j + 1, DATA_ROWS, 1).protect();
+      lock.setDescription("🔒 " + cols[j][0] + " — Auto Column");
+      lock.setWarningOnly(false);
+      lock.removeEditors(lock.getEditors());
+      if (lock.canDomainEdit()) lock.setDomainEdit(false);
+    }
   }
 
-  // ── 6b. SCORE COLS — plain number (no currency, no comma) ──
-  if (dm) applyFormat_(dm,4,[51,52,54,56],500,'0');  // PAYOUT SCORE, LOAN SCORE, RTO SCORE, NET SCORE
+  // ── HEADER ROW PROTECTION (rows 1-3) ──
+  var hdrLock = sheet.getRange(1, 1, 3, numCols).protect();
+  hdrLock.setDescription("🔒 Header Rows — System");
+  hdrLock.setWarningOnly(false);
+  hdrLock.removeEditors(hdrLock.getEditors());
+  if (hdrLock.canDomainEdit()) hdrLock.setDomainEdit(false);
+}
 
-  // ── 7. TENURE number format ───────────────────────────────
-  if (dm) applyFormat_(dm,4,[18,22,29,33],500,'0');
 
-  // ── 8. DATE FORMAT: 6-Apr-2026 ────────────────────────────
-  if (dm)  applyFormat_(dm, 4,[2], 500,'d-mmm-yyyy');
-  if (acc) applyFormat_(acc,4,[1,16,19,23,27,31,42],500,'d-mmm-yyyy');
-  if (rto) applyFormat_(rto,4,[1,9,25],500,'d-mmm-yyyy');
+// ─────────────────────────────────────────────
+//  BUILD MASTER DATA SHEET (97 cols — hidden/locked)
+// ─────────────────────────────────────────────
+function buildMasterSheet_(ss, name, headers, tabColor, C, now) {
+  var sheet   = ss.getSheetByName(name);
+  var numCols = headers.length;
 
-  // ── 12. SPECIAL SIZE 12 COLS ────────────────────────────────
-  // DM sheet special cols
-  if (dm) {
-    [[1],[10],[16],[26],[37],[39],[55],[56]].forEach(function(arr) {
-      dm.getRange(4,arr[0],500,1).setFontSize(12);
-    });
+  sheet.setTabColor(tabColor);
+
+  // Version row
+  sheet.getRange(1, 1, 1, numCols).merge();
+  sheet.getRange(1, 1)
+    .setValue("📋  MASTER_DATA   |   97 Columns   |   Auto Generated   |   v3.0   |   " + now)
+    .setBackground(C.VER_BG)
+    .setFontColor(C.VER_FG)
+    .setFontSize(10)
+    .setFontWeight("bold")
+    .setHorizontalAlignment("left")
+    .setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 28);
+
+  // Header row
+  sheet.getRange(2, 1, 1, numCols)
+    .setValues([headers])
+    .setBackground(C.HDR_BG)
+    .setFontColor(C.HDR_FG)
+    .setFontSize(9)
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
+  sheet.setRowHeight(2, 35);
+
+  // Type row — all GEN
+  var types = headers.map(function(){ return "⚙  AUTO GEN"; });
+  sheet.getRange(3, 1, 1, numCols)
+    .setValues([types])
+    .setBackground(C.GEN.col)
+    .setFontColor(C.GEN.label)
+    .setFontSize(8)
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center");
+  sheet.setRowHeight(3, 22);
+
+  // Data area tint — yellow
+  sheet.getRange(4, 1, 997, numCols).setBackground(C.GEN.data);
+
+  // Column widths
+  for (var i = 1; i <= numCols; i++) sheet.setColumnWidth(i, 130);
+
+  sheet.setFrozenRows(3);
+}
+
+
+// ─────────────────────────────────────────────
+//  BUILD REFERENCE TABLE (DEALER / EMP)
+// ─────────────────────────────────────────────
+function buildRefSheet_(ss, name, headers, tabColor, C, now) {
+  var sheet   = ss.getSheetByName(name);
+  var numCols = headers.length;
+
+  sheet.setTabColor(tabColor);
+
+  // Version row
+  sheet.getRange(1, 1, 1, numCols).merge();
+  sheet.getRange(1, 1)
+    .setValue("📋  " + name + "   |   " + numCols + " Columns   |   Reference Table   |   v3.0   |   " + now)
+    .setBackground(C.VER_BG)
+    .setFontColor(C.VER_FG)
+    .setFontSize(10)
+    .setFontWeight("bold")
+    .setHorizontalAlignment("left")
+    .setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 28);
+
+  // Header row
+  sheet.getRange(2, 1, 1, numCols)
+    .setValues([headers])
+    .setBackground(C.HDR_BG)
+    .setFontColor(C.HDR_FG)
+    .setFontSize(9)
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
+  sheet.setRowHeight(2, 35);
+  sheet.setFrozenRows(2);
+
+  for (var i = 1; i <= numCols; i++) sheet.setColumnWidth(i, 150);
+}
+
+
+// ─────────────────────────────────────────────
+//  LOCK AND HIDE SHEET
+// ─────────────────────────────────────────────
+function lockAndHideSheet_(ss, name) {
+  var sh   = ss.getSheetByName(name);
+  var prot = sh.protect();
+  prot.setDescription("🔒 SYSTEM SHEET — Owner Only — " + name);
+  prot.setWarningOnly(false);
+  prot.removeEditors(prot.getEditors());
+if (prot.canDomainEdit()) prot.setDomainEdit(false);
+prot.addEditor('admin.loan11@gmail.com');
+sh.hideSheet();
+}
+
+
+// ══════════════════════════════════════════════════════
+//  BONUS UTILITIES — Run these separately as needed
+// ══════════════════════════════════════════════════════
+
+/**
+ * REFRESH VERSION TIMESTAMP
+ * Run this whenever you re-deploy or update the sheet.
+ * Updates the version bar date on all 3 working sheets.
+ */
+function refreshVersionStamp() {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var now = Utilities.formatDate(new Date(), "Asia/Kolkata", "dd-MMM-yyyy  HH:mm");
+  var sheets = {
+    "DM_DISBURSEMENT MEMO"     : "DM",
+    "ACCOUNT_PAYMENT_TRACKER"  : "ACC",
+    "RTO_TRACKER"              : "RTO"
+  };
+  for (var sname in sheets) {
+    var sh = ss.getSheetByName(sname);
+    if (!sh) continue;
+    // Unprotect header row temporarily
+    var protections = sh.getRange(1,1,1,1).getProtections(SpreadsheetApp.ProtectionType.RANGE);
+    // Direct edit via script always works — protections apply to UI users only
+    sh.getRange(1, 1)
+      .setValue("📋  Loan_11_MIS_FY2026-27   |   " + sheets[sname] + "   |   v3.0   |   Updated: " + now);
   }
-  // ACC sheet special cols
-  if (acc) {
-    [[2],[6],[30]].forEach(function(arr) {
-      acc.getRange(4,arr[0],500,1).setFontSize(12);
-    });
+  SpreadsheetApp.getUi().alert("✅ Version stamps refreshed!\n" + now);
+}
+
+
+/**
+ * SHOW ALL HIDDEN SHEETS (Admin Use)
+ * Temporarily reveals MASTER, DEALER, EMP for admin viewing.
+ */
+function adminShowAllSheets() {
+  var ss      = SpreadsheetApp.getActiveSpreadsheet();
+  var hidden  = ["MASTER_DATA","DEALER_MASTER","TCO_EMPLOYEE_MASTER"];
+  var ui      = SpreadsheetApp.getUi();
+  var confirm = ui.alert(
+    "⚠️  ADMIN ACTION",
+    "Reveal all hidden sheets?\nThis is for Admin review only.",
+    ui.ButtonSet.YES_NO
+  );
+  if (confirm !== ui.Button.YES) return;
+  for (var i = 0; i < hidden.length; i++) {
+    var sh = ss.getSheetByName(hidden[i]);
+    if (sh) sh.showSheet();
   }
-  // RTO sheet special cols
-  if (rto) {
-    [[2],[8],[24],[26]].forEach(function(arr) {
-      rto.getRange(4,arr[0],500,1).setFontSize(12);
-    });
+  ui.alert("✅ Hidden sheets are now visible.\nRun adminHideAllSheets() when done.");
+}
+
+/**
+ * HIDE MASTER SHEETS AGAIN (Admin Use)
+ */
+function adminHideAllSheets() {
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var hidden = ["MASTER_DATA","DEALER_MASTER","TCO_EMPLOYEE_MASTER"];
+  for (var i = 0; i < hidden.length; i++) {
+    var sh = ss.getSheetByName(hidden[i]);
+    if (sh) sh.hideSheet();
   }
-
-  // NOTE: Word, Word+No, Email, Phone validations are handled
-  // via onEdit script (warning color only — no popup, no block)
+  SpreadsheetApp.getUi().alert("✅ Master sheets hidden again.");
 }
 
-
-// ── VALIDATION HELPERS ────────────────────────────────────────
-
-// Helper: column number → letter (A, B, ... Z, AA, AB...)
-function colLetter_(col) {
-  var letter = '';
-  while (col > 0) {
-    var rem = (col - 1) % 26;
-    letter  = String.fromCharCode(65 + rem) + letter;
-    col     = Math.floor((col - 1) / 26);
-  }
-  return letter;
-}
-
-// Dropdown
-function dropdownRule_(sh,sr,col,rows,vals) {
-  sh.getRange(sr,col,rows,1).setDataValidation(
-    SpreadsheetApp.newDataValidation()
-      .requireValueInList(vals,true)
-      .setAllowInvalid(false).build());
-}
-
-// Date only — strict block + format 6-Apr-2026
-function dateRule_(sh,sr,col,rows) {
-  sh.getRange(sr,col,rows,1).setDataValidation(
-    SpreadsheetApp.newDataValidation()
-      .requireDate()
-      .setHelpText('Date only — format: 6-Apr-2026')
-      .setAllowInvalid(false).build());
-}
-
-// Phone — 10 digit only
-function phoneRule_(sh,sr,col,rows) {
-  if (!sh) return;
-  var cl = colLetter_(col);
-  sh.getRange(sr,col,rows,1).setDataValidation(
-    SpreadsheetApp.newDataValidation()
-      .requireFormulaSatisfied(
-        '=AND(ISNUMBER('+cl+sr+'),LEN(TEXT('+cl+sr+',"0"))=10)')
-      .setHelpText('10-digit mobile number only')
-      .setAllowInvalid(false).build());
-}
-
-// Number length — 2 digit or 4 digit (strict block)
-function numLenRule_(sh,sr,col,rows,digits) {
-  if (!sh) return;
-  var maxVal = Math.pow(10,digits) - 1;
-  var minVal = digits === 4 ? 1900 : 0;  // 0 allowed = no data
-  sh.getRange(sr,col,rows,1).setDataValidation(
-    SpreadsheetApp.newDataValidation()
-      .requireNumberBetween(minVal,maxVal)
-      .setHelpText('Max '+digits+' digits allowed')
-      .setAllowInvalid(false).build());
-}
-
-// Word-only validation removed — handled by onEdit warning colors
-
-// Word+Num validation removed — handled by onEdit warning colors
-
-// Currency — number only + ₹ format with space (₹ 8,00,000)
-function currencyRule_(sh,sr,cols,rows) {
-  if (!sh) return;
-  cols.forEach(function(col) {
-    var cl = colLetter_(col);
-    // Validation: numbers only (greater than or equal to 0)
-    sh.getRange(sr,col,rows,1).setDataValidation(
-      SpreadsheetApp.newDataValidation()
-        .requireNumberGreaterThanOrEqualTo(0)
-        .setHelpText('Numbers only — no text or special characters')
-        .setAllowInvalid(false).build());
-    // Format: ₹ 8,00,000 (Indian format with space)
-    sh.getRange(sr,col,rows,1).setNumberFormat('₹ ##,##,##0');
-  });
-}
-
-// Percentage — number only + format: 12.54 % (space before %)
-function percentRule_(sh,sr,col,rows) {
-  if (!sh) return;
-  sh.getRange(sr,col,rows,1).setDataValidation(
-    SpreadsheetApp.newDataValidation()
-      .requireNumberBetween(0,100)
-      .setHelpText('Enter percentage: e.g. 12.54')
-      .setAllowInvalid(false).build());
-  // Format: 12.54 % (gap between number and %)
-  sh.getRange(sr,col,rows,1).setNumberFormat('0.00" %"');
-}
-
-// Apply number format to multiple columns
-function applyFormat_(sh,sr,cols,rows,fmt) {
-  cols.forEach(function(c) {
-    var maxRows = sh.getMaxRows() - sr + 1;
-    sh.getRange(sr,c,maxRows,1).setNumberFormat(fmt);
-  });
-}
-
-
-// ── FORMATTING ────────────────────────────────────────────────
-function applyAllFormatting_(ss) {
-  var map = {'DM_DISBURSEMENT MEMO':57,'ACCOUNT_PAYMENT_TRACKER':45,'RTO_TRACKER':30};
-  Object.keys(map).forEach(function(sn) {
-    var sh = ss.getSheetByName(sn); if (!sh) return;
-    sh.getRange(4,2,200,map[sn]-1)
-      .setFontWeight('bold').setHorizontalAlignment('center')
-      .setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
-      .setFontColor('#000000').setFontSize(10).setFontFamily('Arial')
-      .setBorder(true,true,true,true,true,true,SETUP.BORDER,SpreadsheetApp.BorderStyle.SOLID);
-    for (var r=4;r<=60;r++) sh.setRowHeight(r,30);
-  });
-}
-
-function manageSheetVisibility_(ss) {
-  SETUP.SHEETS.VISIBLE.forEach(function(n){var s=ss.getSheetByName(n);if(s)s.showSheet();});
-  SETUP.SHEETS.HIDDEN.forEach(function(n){var s=ss.getSheetByName(n);if(s)s.hideSheet();});
-}
-
-function setColumnWidths_(ss) {
-  var dm=ss.getSheetByName('DM_DISBURSEMENT MEMO');
-  if (dm) {
-    dm.setColumnWidth(1,130);dm.setColumnWidth(2,100);dm.setColumnWidth(3,80);
-    dm.setColumnWidth(6,160);dm.setColumnWidth(10,120);dm.setColumnWidth(14,110);
-    dm.setColumnWidths(16,11,100);dm.setColumnWidth(40,90);
-    dm.setColumnWidth(41,150);dm.setColumnWidth(42,120);dm.setColumnWidth(44,160);
-  }
-  var acc=ss.getSheetByName('ACCOUNT_PAYMENT_TRACKER');
-  if (acc) {
-    acc.setColumnWidth(2,130);acc.setColumnWidth(3,160);
-    acc.setColumnWidth(6,120);acc.setColumnWidth(11,150);acc.setColumnWidth(30,120);
-  }
-  var rto=ss.getSheetByName('RTO_TRACKER');
-  if (rto) {
-    rto.setColumnWidth(2,130);rto.setColumnWidth(8,120);rto.setColumnWidth(10,80);
-    rto.setColumnWidth(22,130);rto.setColumnWidth(24,120);rto.setColumnWidth(26,90);
-  }
-}
-
-
-// ── SHARED HEADER HELPERS ─────────────────────────────────────
-function setSectionRow_(sheet, sections) {
-  sections.forEach(function(sec) {
-    var r = sheet.getRange(1, sec.st, 1, sec.en - sec.st + 1);
-    if (sec.st !== sec.en) r.merge();
-    r.setValue(sec.label)
-     .setBackground(sec.color).setFontColor('#FFFFFF')
-     .setFontWeight('bold').setFontSize(13)
-     .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  });
-}
-
-function setHeaderRow2_(sheet, headers) {
-  sheet.getRange(2,1,1,headers.length).setValues([headers])
-    .setBackground(SETUP.ROW2.BG)       // Light background
-    .setFontColor(SETUP.ROW2.FONT)      // Dark font
-    .setFontWeight('bold').setFontSize(11)
-    .setHorizontalAlignment('center').setVerticalAlignment('middle')
-    .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-}
-
-function setTypeRow3_(sheet, typeArr) {
-  // Set values
-  var vals = typeArr.map(function(t){ return t.v; });
-  sheet.getRange(3,1,1,vals.length).setValues([vals])
-    .setBackground('#F8FAFC')
-    .setFontSize(9).setFontStyle('italic')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  // Set individual font colors per type
-  typeArr.forEach(function(t,i) {
-    sheet.getRange(3, i+1).setFontColor(t.c);
-  });
-}
-
-function finalizeRows_(sheet, withType) {
-  sheet.setRowHeight(1, 36);
-  sheet.setRowHeight(2, 50);
-  if (withType) sheet.setRowHeight(3, 22);
-  sheet.setFrozenRows(withType ? 3 : 2);
-}
