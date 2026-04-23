@@ -370,5 +370,50 @@ function clearMasterData_() {
   mp.addEditor(UC.ADMIN_EMAIL);
 }
 
+// यह स्क्रिप्ट Row 3 (Labels) से लेकर एंड तक फ़िल्टर सेट कर देगी
+function setupMasterFilters() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var visibleSheets = [
+    'DM_DISBURSEMENT MEMO',
+    'ACCOUNT_PAYMENT_TRACKER',
+    'RTO_TRACKER'
+  ];
 
+  visibleSheets.forEach(function(name) {
+    var sheet = ss.getSheetByName(name);
+    if (sheet) {
+      // अगर पहले से कोई फ़िल्टर है तो उसे हटा दें
+      if (sheet.getFilter() !== null) {
+        sheet.getFilter().remove();
+      }
+      
+      // Row 3 से लेकर शीट के एंड तक नया फ़िल्टर लगा दें
+      var maxRows = sheet.getMaxRows();
+      var maxCols = sheet.getMaxColumns();
+      // getRange(row, col, numRows, numColumns)
+      sheet.getRange(3, 1, maxRows - 2, maxCols).createFilter();
+    }
+  });
+  
+  SpreadsheetApp.getUi().alert('✅ सभी वर्किंग शीट्स की Row 3 पर फ़िल्टर सेट हो गया है!');
+}
+
+// ─────────────────────────────────────────────────────────────
+// ── BULK REFRESH ALL COLORS (For Copy-Paste & Old Data) ──────
+// ─────────────────────────────────────────────────────────────
+function refreshAllColors() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(TCO.SHEET.ACC);
+  if (!sheet) return;
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < TCO.DATA_ROW) return;
+
+  // यह लूप हर रो पर जाकर कलर का रूल चेक करेगा और लगा देगा
+  for (var row = TCO.DATA_ROW; row <= lastRow; row++) {
+    applyPaymentColors_(sheet, row);
+  }
+  
+  SpreadsheetApp.getUi().alert('✅ Account शीट के सभी कलर्स अपडेट हो गए हैं!');
+}
 

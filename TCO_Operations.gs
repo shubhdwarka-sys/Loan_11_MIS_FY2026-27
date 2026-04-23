@@ -320,6 +320,51 @@ function handleAccEdit_(ss, sheet, row, col, value) {
 
 
 // ─────────────────────────────────────────────────────────────
+// ── OPTIMIZED PAYMENT TRACKER COLOR FORMATTING ───────────────
+// ─────────────────────────────────────────────────────────────
+  function applyPaymentColors_(sheet, row) {
+  try {
+    // डेटा रीड करें
+    var valL = sheet.getRange(row, 12).getValue(); // Col L (DISB RECV DATE)
+    var valQ = sheet.getRange(row, 17).getValue(); // Col Q (PAYER 1 NAME)
+    
+    var rangeAll = sheet.getRange(row, 17, 1, 12); // Q to AB range
+
+    // 1. अगर Q (Payer Name) खाली है, तो कलर हटा दें
+    if (!valQ || valQ.toString().trim() === "") {
+      rangeAll.setBackground('#ffffff');
+      return;
+    }
+
+    // 2. RULE 1: अगर L (Date) खाली है और Q में डेटा है -> पूरा Blue (#cfe2f3)
+    if (!valL || valL.toString().trim() === "") {
+      rangeAll.setBackground('#cfe2f3'); 
+      return;
+    }
+
+    // 3. RULE 2: अगर L में डेट है और Q में डेटा है
+    // Q to T -> Green (#d9ead3)
+    sheet.getRange(row, 17, 1, 4).setBackground('#d9ead3');
+
+    // U to X Logic -> FULL होने पर Green, नहीं तो Yellow (#fff2cc)
+    var valU = sheet.getRange(row, 21).getValue();
+    var strU = valU ? valU.toString().toUpperCase().trim() : "";
+    var colorU = (strU === 'FULL') ? '#d9ead3' : '#fff2cc';
+    sheet.getRange(row, 21, 1, 4).setBackground(colorU);
+
+    // Y to AB Logic -> FULL होने पर Green, नहीं तो Yellow (#fff2cc)
+    var valY = sheet.getRange(row, 25).getValue();
+    var strY = valY ? valY.toString().toUpperCase().trim() : "";
+    var colorY = (strY === 'FULL') ? '#d9ead3' : '#fff2cc';
+    sheet.getRange(row, 25, 1, 4).setBackground(colorY);
+
+  } catch (e) {
+    Logger.log("Color Error: " + e.message);
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────
 // ── RTO HANDLER ──────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────
 function handleRtoEdit_(ss, sheet, row, col, value) {
@@ -905,41 +950,6 @@ function generateRtoCode_(regNo) {
   return m[1] + String(parseInt(m[2], 10)).padStart(2, '0');
 }
 
-// PENDING DAYS — days since DISB_RECV_DATE from Account Sheet
-function updatePendingDays_(sheet, row) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var dmNo = sheet.getRange(row, TCO.RTO.DM_NO).getValue();
-  
-  // Account sheet se date nikalne ke liye logic
-  var accSheet = ss.getSheetByName(TCO.SHEET.ACC);
-  var accRow = findRowByDmNo_(accSheet, dmNo, TCO.ACC.DM_NO);
-  
-  var startDate = null;
-  if (accSheet && accRow) {
-    startDate = accSheet.getRange(accRow, TCO.ACC.DISB_RECV_DATE).getValue();
-  }
-
-  var rcDate = sheet.getRange(row, TCO.RTO.RC_DATE).getValue();
-  var rcSt   = String(sheet.getRange(row, TCO.RTO.RC_STATUS).getValue()).toUpperCase().trim();
-
-  // Agar Account sheet main date nahi hai, toh calculation blank rakhega
-  if (!startDate || !(startDate instanceof Date)) {
-    sheet.getRange(row, TCO.RTO.PENDING_DAYS).setValue('WAITING FOR DISB');
-    return;
-  }
-
-  var end  = (rcDate && (rcSt === 'DONE' || rcSt === 'COMPLETED'))
-               ? new Date(rcDate)
-               : new Date();
-  
-  var days = Math.max(0, Math.round((end - new Date(startDate)) / 86400000));
-
-  styleCell_(
-    sheet.getRange(row, TCO.RTO.PENDING_DAYS).setValue(days),
-    TCO.STYLE.PENDING
-  );
-}
-
 // Safe UPPERCASE
 function toUpper_(val) {
   if (val === null || val === undefined || val === '') return '';
@@ -950,27 +960,60 @@ function toUpper_(val) {
 
 
 // ─────────────────────────────────────────────────────────────
-// ── DAILY TRIGGER — PENDING DAYS AUTO UPDATE ─────────────────
+// ── PENDING DAYS CALCULATION (AUTO) ──────────────────────────
 // ─────────────────────────────────────────────────────────────
+function updatePendingDays_(rtoSheet, row) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var accSheet = ss.getSheetByName(TCO.SHEET.ACC);
+  
+  var dmNo = rtoSheet.getRange(row, TCO.RTO.DM_NO).getValue();
+  var accRow = findRowByDmNo_(accSheet, dmNo, TCO.ACC.DM_NO);
+  
+  if (!accRow) return;
 
-// Run this ONCE manually to set up daily auto-update
-function setupDailyTrigger() {
-  // Remove existing
-  ScriptApp.getProjectTriggers().forEach(function(t) {
-    if (t.getHandlerFunction() === 'dailyPendingDaysUpdate') {
-      ScriptApp.deleteTrigger(t);
-    }
-  });
-  // Set new — 8 AM daily
-  ScriptApp.newTrigger('dailyPendingDaysUpdate')
-    .timeBased()
-    .everyDays(1)
-    .atHour(8)
-    .create();
-  SpreadsheetApp.getUi().alert(
-    '✅ Daily Trigger Set!\n' +
-    'PENDING DAYS will auto-update every day at 8:00 AM.'
-  );
+  var startDate = accSheet.getRange(accRow, 12).getValue(); // Col L (Account Sheet)
+  var endDate = rtoSheet.getRange(row, 25).getValue();      // Col Y (RTO Sheet)
+  var cellZ = rtoSheet.getRange(row, 26);                   // Col Z (RTO Sheet)
+
+  // अगर Account में डेट नहीं है
+  if (!startDate || startDate === "") {
+    cellZ.setValue("WAITING FOR DISB").setFontColor("#ef4444").setFontWeight("bold");
+    return;
+  }
+
+  var start = new Date(startDate);
+  var end = (endDate && endDate !== "") ? new Date(endDate) : new Date();
+  
+  // टाइम को इग्नोर करके सिर्फ दिन काउंट करने के लिए
+  start.setHours(0,0,0,0);
+  end.setHours(0,0,0,0);
+
+  var diffInTime = end.getTime() - start.getTime();
+  var diffInDays = Math.floor(diffInTime / (1000 * 3600 * 24));
+
+  cellZ.setValue(diffInDays).setFontWeight("bold");
+  
+  // कलर लॉजिक (पेंडिंग = Red, डन = Green)
+  if (!endDate) {
+    cellZ.setFontColor("#ef4444"); 
+  } else {
+    cellZ.setFontColor("#10b981"); 
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// ── DAILY RTO REFRESH (12 AM TRIGGER) ────────────────────────
+// ─────────────────────────────────────────────────────────────
+function dailyRtoRefresh() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rtoSheet = ss.getSheetByName(TCO.SHEET.RTO);
+  if (!rtoSheet) return;
+  
+  var lastRow = rtoSheet.getLastRow();
+
+  for (var i = TCO.DATA_ROW; i <= lastRow; i++) {
+    updatePendingDays_(rtoSheet, i);
+  }
 }
 
 // Runs daily — updates all pending RTO rows
@@ -1021,8 +1064,60 @@ function autoUpdateMaster() {
 }
 
 
+// ─────────────────────────────────────────────────────────────
+// ── SUPER FAST BULK COLOR FIX (1 Second Execution) ───────────
+// ─────────────────────────────────────────────────────────────
+function forceFixAllColors() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(TCO.SHEET.ACC);
+  if (!sheet) return;
 
+  var lastRow = sheet.getLastRow();
+  if (lastRow < TCO.DATA_ROW) return;
 
+  // एक साथ सारा डेटा रीड करना (ताकि शीट हैंग न हो)
+  var valuesL = sheet.getRange(TCO.DATA_ROW, 12, lastRow - TCO.DATA_ROW + 1, 1).getValues();
+  var rangeQ_AB = sheet.getRange(TCO.DATA_ROW, 17, lastRow - TCO.DATA_ROW + 1, 12);
+  var valuesQ_AB = rangeQ_AB.getValues();
+  
+  var backgrounds = [];
+
+  for (var i = 0; i < valuesQ_AB.length; i++) {
+    var valL = valuesL[i][0];
+    var valQ = valuesQ_AB[i][0];  // Q (Payer 1 Name)
+    var valU = valuesQ_AB[i][4];  // U (Payer 1 ACC)
+    var valY = valuesQ_AB[i][8];  // Y (Payer 2 ACC)
+
+    var strL = valL ? String(valL).trim() : "";
+    var strQ = valQ ? String(valQ).trim() : "";
+    var strU = valU ? String(valU).toUpperCase().trim() : "";
+    var strY = valY ? String(valY).toUpperCase().trim() : "";
+
+    var cQ_T = '#ffffff', cU_X = '#ffffff', cY_AB = '#ffffff'; // Default White
+
+    if (strQ !== "") {
+      if (strL === "") {
+        // Rule 1: L Blank है -> पूरा Blue
+        cQ_T = '#cfe2f3'; cU_X = '#cfe2f3'; cY_AB = '#cfe2f3';
+      } else {
+        // Rule 2: L में Date है -> Green & Yellow (साथ में FULL कंडीशन)
+        cQ_T = '#d9ead3'; 
+        cU_X = (strU === 'FULL') ? '#d9ead3' : '#fff2cc'; 
+        cY_AB = (strY === 'FULL') ? '#d9ead3' : '#fff2cc'; 
+      }
+    }
+
+    backgrounds.push([
+      cQ_T, cQ_T, cQ_T, cQ_T,     // Q, R, S, T
+      cU_X, cU_X, cU_X, cU_X,     // U, V, W, X
+      cY_AB, cY_AB, cY_AB, cY_AB  // Y, Z, AA, AB
+    ]);
+  }
+
+  // पूरी शीट के कलर्स को एक ही सेकंड में ज़बरदस्ती (Force) अप्लाई करें
+  rangeQ_AB.setBackgrounds(backgrounds);
+  SpreadsheetApp.getUi().alert('✅ मैजिक! 1 सेकंड में पूरी शीट के कलर्स फिक्स कर दिए गए हैं।');
+}
 
 
 
